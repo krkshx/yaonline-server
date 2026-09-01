@@ -1,11 +1,29 @@
-import pathlib, shutil
+import pathlib, shutil, os, time, subprocess, sys
 
 #путь
 src = pathlib.Path(r"C:\Program Files (x86)\Yandex\Online\yachat\yachat.exe")
 dst = pathlib.Path(r"C:\Users\krksh\Documents\yachat\yachat_run\yachat.exe")
 dst.parent.mkdir(parents=True, exist_ok=True)
-shutil.copy(src, dst)
-print(f"copy {src} -> {dst}")
+
+#убиваем ячат если висит
+for p in ["yachat.exe", "online.exe"]:
+    try:
+        subprocess.run(["taskkill","/f","/im",p], capture_output=True)
+    except: pass
+time.sleep(1)
+
+#копируем с ретраем если файл занят
+for i in range(5):
+    try:
+        shutil.copy(src, dst)
+        print(f"copy {src} -> {dst}")
+        break
+    except PermissionError as e:
+        print(f"занят, жду {i}: {e}")
+        time.sleep(1)
+else:
+    print("не смог скопировать, файл занят")
+    sys.exit(1)
 
 d = bytearray(dst.read_bytes())
 
@@ -41,8 +59,17 @@ print(f"off token {hex(off)} before {d[off:off+10].hex()}")
 d[off:off+3] = bytes.fromhex('31 c0 c3')
 print(f"after {d[off:off+10].hex()}")
 
-dst.write_bytes(d)
-print("done", dst)
+for i in range(5):
+    try:
+        dst.write_bytes(d)
+        print("done", dst)
+        break
+    except PermissionError as e:
+        print(f"запись занята {i}: {e}")
+        time.sleep(1)
+else:
+    print("не смог записать")
+    sys.exit(1)
 
 #проверка
 print("127 count", d.count(b'127.0.0.1'))
