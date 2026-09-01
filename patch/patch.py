@@ -3,6 +3,7 @@ import pathlib, shutil, os, time, subprocess, sys
 #путь
 src = pathlib.Path(r"C:\Program Files (x86)\Yandex\Online\yachat\yachat.exe")
 dst = pathlib.Path(r"C:\Users\krksh\Documents\yachat\yachat_run\yachat.exe")
+dst2 = pathlib.Path(r"C:\Users\krksh\Documents\yachat\yachat_run\yachat_patched.exe")
 dst.parent.mkdir(parents=True, exist_ok=True)
 
 #убиваем ячат если висит
@@ -24,8 +25,12 @@ for i in range(5):
 else:
     print("не смог скопировать, файл занят")
     sys.exit(1)
-
+#читаем оригинал, пишем в патченый
 d = bytearray(dst.read_bytes())
+import pefile
+pe = pefile.PE(str(dst))
+#далее будем писать в dst2
+dst = dst2
 
 def patch(old, new):
     c = 0
@@ -48,8 +53,6 @@ n4 = patch(b'passport.yandex.ru', b'127.0.0.1')
 print(f"patch host {n1} {n2} {n3} {n4}")
 
 #токен - патчим функцию 0x644840 (rva 0x244840) -> xor eax,eax; ret
-import pefile
-pe = pefile.PE(str(dst))
 def rva_to_off(rva):
     for s in pe.sections:
         if s.VirtualAddress <= rva < s.VirtualAddress + s.Misc_VirtualSize:
@@ -59,12 +62,19 @@ print(f"off token {hex(off)} before {d[off:off+10].hex()}")
 d[off:off+3] = bytes.fromhex('31 c0 c3')
 print(f"after {d[off:off+10].hex()}")
 
+tmp = dst.with_name(dst.name + ".tmp")
 for i in range(5):
     try:
-        dst.write_bytes(d)
+        tmp.write_bytes(d)
+        # атомарно заменяем
+        try:
+            if dst.exists():
+                dst.unlink()
+        except: pass
+        tmp.replace(dst)
         print("done", dst)
         break
-    except PermissionError as e:
+    except OSError as e:
         print(f"запись занята {i}: {e}")
         time.sleep(1)
 else:
